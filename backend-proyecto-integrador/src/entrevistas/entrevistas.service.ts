@@ -137,6 +137,34 @@ export class EntrevistasService {
     });
   }
 
+  // MÉTODO: Obtener todos los textos de un estudiante por etiqueta (historial completo)
+  async getTextosByEstudianteAndEtiqueta(
+    estudianteId: string,
+    nombreEtiqueta: string,
+  ): Promise<Texto[]> {
+    // Obtener todas las entrevistas del estudiante
+    const entrevistas = await this.entrevistaRepository.find({
+      where: { estudianteId },
+      select: ['id'],
+    });
+
+    if (entrevistas.length === 0) {
+      return [];
+    }
+
+    const entrevistaIds = entrevistas.map((e) => e.id);
+
+    // Obtener todos los textos de esas entrevistas con la etiqueta específica
+    return this.textoRepository
+      .createQueryBuilder('texto')
+      .leftJoinAndSelect('texto.etiqueta', 'etiqueta')
+      .leftJoinAndSelect('texto.entrevista', 'entrevista')
+      .where('texto.entrevistaId IN (:...entrevistaIds)', { entrevistaIds })
+      .andWhere('texto.nombre_etiqueta = :nombreEtiqueta', { nombreEtiqueta })
+      .orderBy('texto.fecha', 'DESC')
+      .getMany();
+  }
+
   async addTexto(
     entrevistaId: string,
     textoData: { nombre_etiqueta: string; contenido: string; contexto?: string },

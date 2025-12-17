@@ -66,6 +66,13 @@ class EntrevistaService extends BaseHttpClient {
       method: 'DELETE',
     });
   }
+
+  // Obtener todos los textos de un estudiante por etiqueta (historial completo de todas las entrevistas)
+  async getTextosByEstudianteAndEtiqueta(estudianteId: string, nombreEtiqueta: string): Promise<any[]> {
+    return await this.request<any[]>(
+      `/entrevistas/estudiante/${estudianteId}/etiqueta/${encodeURIComponent(nombreEtiqueta)}/textos`
+    );
+  }
 }
 
 export const entrevistaService = new EntrevistaService();

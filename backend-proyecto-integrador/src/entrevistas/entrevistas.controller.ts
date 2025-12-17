@@ -32,6 +32,17 @@ export class EntrevistasController {
     return this.entrevistasService.findByEstudiante(idEstudiante);
   }
 
+  @Get('estudiante/:estudianteId/etiqueta/:nombreEtiqueta/textos')
+  async getTextosByEstudianteAndEtiqueta(
+    @Param('estudianteId') estudianteId: string,
+    @Param('nombreEtiqueta') nombreEtiqueta: string,
+  ) {
+    return this.entrevistasService.getTextosByEstudianteAndEtiqueta(
+      estudianteId,
+      decodeURIComponent(nombreEtiqueta),
+    );
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.entrevistasService.findOne(id);

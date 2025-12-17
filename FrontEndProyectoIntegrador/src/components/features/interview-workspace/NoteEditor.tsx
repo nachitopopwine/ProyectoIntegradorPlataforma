@@ -8,6 +8,11 @@ interface Note {
   content: string;
   timestamp: Date;
   tags?: string[];
+  entrevistaInfo?: {
+    id: string;
+    fecha: Date;
+    numero: number;
+  };
 }
 
 interface NoteEditorProps {
@@ -30,25 +35,33 @@ export function NoteEditor({
   const [searchDate, setSearchDate] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // CARGAR NOTAS: Cargar desde backend
+  // Obtener el estudianteId
+  const estudianteId = estudiante.id_estudiante || estudiante.id;
+
+  // CARGAR NOTAS: Cargar TODAS las notas históricas del estudiante para esta etiqueta
   useEffect(() => {
     const loadNotas = async () => {
-      if (!entrevistaId) return;
+      if (!estudianteId) return;
       
       try {
         setIsLoading(true);
-        const textos = await entrevistaService.getTextos(entrevistaId);
         
-        // Filtrar por etiqueta (sectionTitle)
-        const textosFiltrados = textos.filter(
-          (texto: any) => texto.nombre_etiqueta === sectionTitle
+        // Cargar TODOS los textos del estudiante para esta etiqueta (de todas las entrevistas)
+        const textos = await entrevistaService.getTextosByEstudianteAndEtiqueta(
+          estudianteId.toString(),
+          sectionTitle
         );
         
-        // Convertir a formato Note
-        const notasFormateadas: Note[] = textosFiltrados.map((texto: any) => ({
+        // Convertir a formato Note con información de la entrevista
+        const notasFormateadas: Note[] = textos.map((texto: any) => ({
           id: texto.id,
           content: texto.contenido,
           timestamp: new Date(texto.fecha),
+          entrevistaInfo: texto.entrevista ? {
+            id: texto.entrevista.id || texto.entrevistaId,
+            fecha: new Date(texto.entrevista.fecha),
+            numero: texto.entrevista.numero_Entrevista || texto.entrevista.numero_entrevista,
+          } : undefined,
         }));
         
         setNotes(notasFormateadas);
@@ -60,7 +73,7 @@ export function NoteEditor({
     };
 
     loadNotas();
-  }, [tabId, sectionTitle, entrevistaId]);
+  }, [tabId, sectionTitle, estudianteId]);
 
   // FUNCIONES: Gestión de notas
   const handleSaveNote = async () => {
@@ -76,11 +89,16 @@ export function NoteEditor({
         contexto: `Entrevista con ${estudiante.nombre || estudiante.nombres}`
       });
       
-      // Añadir a la lista local
+      // Añadir a la lista local con indicador de "entrevista actual"
       const note: Note = {
         id: textoGuardado.id,
         content: textoGuardado.contenido,
         timestamp: new Date(textoGuardado.fecha),
+        entrevistaInfo: {
+          id: entrevistaId,
+          fecha: new Date(),
+          numero: 0, // Se mostrará como "Entrevista actual"
+        },
       };
       
       setNotes(prev => [note, ...prev]);
@@ -188,27 +206,47 @@ export function NoteEditor({
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {filteredNotes.map((note) => (
-              <div
-                key={note.id}
-                className="p-3 bg-gray-50 border border-gray-200 rounded-lg"
-              >
-                {/* Header de la nota */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs text-gray-500 flex items-center gap-2">
-                    <span>🕒</span>
-                    <span>{formatDate(note.timestamp)}</span>
-                    <span>•</span>
-                    <span>{formatTime(note.timestamp)}</span>
+            {/* Indicador de historial */}
+            <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded-md border border-blue-200 flex items-center gap-2">
+              <span>📚</span>
+              <span>Historial completo: {filteredNotes.length} observaciones de todas las entrevistas</span>
+            </div>
+            
+            {filteredNotes.map((note) => {
+              const isCurrentEntrevista = note.entrevistaInfo?.id === entrevistaId;
+              
+              return (
+                <div
+                  key={note.id}
+                  className={`p-3 border rounded-lg ${isCurrentEntrevista ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}
+                >
+                  {/* Header de la nota */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs text-gray-500 flex items-center gap-2">
+                      <span>🕒</span>
+                      <span>{formatDate(note.timestamp)}</span>
+                      <span>•</span>
+                      <span>{formatTime(note.timestamp)}</span>
+                    </div>
+                    
+                    {/* Badge de entrevista */}
+                    {note.entrevistaInfo && (
+                      <div className={`text-xs px-2 py-1 rounded-full ${isCurrentEntrevista ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {isCurrentEntrevista 
+                          ? '📍 Entrevista actual' 
+                          : `📋 Entrevista ${note.entrevistaInfo.numero || ''} - ${note.entrevistaInfo.fecha.toLocaleDateString('es-CL')}`
+                        }
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Contenido de la nota */}
+                  <div className="text-sm text-gray-800 leading-6 whitespace-pre-wrap">
+                    {note.content}
                   </div>
                 </div>
-                
-                {/* Contenido de la nota */}
-                <div className="text-sm text-gray-800 leading-6 whitespace-pre-wrap">
-                  {note.content}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
